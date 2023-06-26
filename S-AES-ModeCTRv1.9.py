@@ -1,3 +1,5 @@
+from pydub import AudioSegment
+from pydub.playback import play
 
 # S-Box
 sBox = [0x9, 0x4, 0xa, 0xb, 0xd, 0x1, 0x8, 0x5,
@@ -6,6 +8,7 @@ sBox = [0x9, 0x4, 0xa, 0xb, 0xd, 0x1, 0x8, 0x5,
 # Inverse S-Box
 sBoxI = [0xa, 0x5, 0x9, 0xb, 0x1, 0x7, 0x8, 0xf,
          0x6, 0x0, 0x2, 0x3, 0xc, 0x4, 0xd, 0xe]
+
 
 # Round keys: K0 = w0 + w1; K1 = w2 + w3; K2 = w4 + w5
 w = [None] * 6
@@ -93,37 +96,7 @@ def decrypt(ctext):
     return vecToInt(addKey(intToVec((w[0] << 8) + w[1]), state))
 
 
-def ctr_encrypt(plaintext, round_keys, nonce):
-    """Encrypt plaintext using S-AES in CTR mode"""
-    counter = 0
-    ciphertext = b""
-    for i in range(0, len(plaintext), 2):
-        counter += 1
-        nonce_counter = nonce + counter.to_bytes(8, 'big')
-        keystream = encrypt(int.from_bytes(nonce_counter, 'big'))
-        if i + 2 > len(plaintext):
-            plaintext_block = plaintext[i:]
-            pad_length = 2 - len(plaintext_block)
-            plaintext_block += bytes([pad_length] * pad_length)
-        else:
-            plaintext_block = plaintext[i:i + 2]
-        ciphertext_block = bytes([a ^ b for a, b in zip(plaintext_block, keystream.to_bytes(2, 'big'))])
-        ciphertext += ciphertext_block
-    return ciphertext
-
-
-def ctr_decrypt(ciphertext, round_keys, nonce):
-    """Decrypt ciphertext using S-AES in CTR mode"""
-    decrypted_plaintext = ctr_encrypt(ciphertext, round_keys, nonce)
-
-    # Remove padding if present
-    if decrypted_plaintext[-1:] == b"\x01":
-        decrypted_plaintext = decrypted_plaintext[:-1]
-
-    return decrypted_plaintext
-
-
-def brute_force_decrypt(ciphertext, nonce):
+def brute_force_decrypt(ciphertext, nonce, plaintext):
     """Brute force attack to decrypt ciphertext in CTR mode"""
     for key in range(0, 0b01001010111101011):  # Iterate through all possible keys
         keyExp(key)
@@ -134,26 +107,51 @@ def brute_force_decrypt(ciphertext, nonce):
     return None
 
 
+def ctr_encrypt(audio_data, round_keys, nonce):
+    """Encrypt audio data using S-AES in CTR mode"""
+    counter = 0
+    ciphertext = b""
 
+    for i in range(0, len(audio_data), 2):
+        counter += 1
+        nonce_counter = nonce + counter.to_bytes(8, 'big')
+        keystream = encrypt(int.from_bytes(nonce_counter, 'big'))
+        if i + 2 > len(audio_data):
+            audio_block = audio_data[i:]
+            pad_length = 2 - len(audio_block)
+            audio_block += bytes([pad_length] * pad_length)
+        else:
+            audio_block = audio_data[i:i + 2]
+        ciphertext_block = bytes([a ^ b for a, b in zip(audio_block, keystream.to_bytes(2, 'big'))])
+        ciphertext += ciphertext_block
+    return ciphertext
+
+
+def ctr_decrypt(ciphertext, round_keys, nonce):
+    """Decrypt ciphertext using S-AES in CTR mode"""
+    decrypted_audio = ctr_encrypt(ciphertext, round_keys, nonce)
+    return decrypted_audio
 
 
 if __name__ == '__main__':
-    plaintext = b"Hello Charbel, it's just a test for the bruteforce attack"
+    audio_file = r"C:\Users\charb\Desktop\Semester 8\info431 - crypto\Project\Audio\RaveMusic.wav"
     key = 0b0100101011110101
     nonce = b'\x00' * 8
 
     keyExp(key)
-    ciphertext = ctr_encrypt(plaintext, w, nonce)
-    decrypted_plaintext = ctr_decrypt(ciphertext, w, nonce)
 
-    print(f"Plaintext: {plaintext}")
-    print(f"Ciphertext: {ciphertext}")
-    print(f"Decrypted plaintext: {decrypted_plaintext}")
+    # Load input audio data
+    audio = AudioSegment.from_file(audio_file, format=audio_file.split(".")[-1])
+    audio_data = audio.raw_data
 
-    # Brute force attack
-    recovered_key = brute_force_decrypt(ciphertext, nonce)
+    ciphertext = ctr_encrypt(audio_data, w, nonce)
+    decrypted_audio_data = ctr_decrypt(ciphertext, w, nonce)
 
-    if recovered_key is not None:
-        print(f"Recovered Key: {recovered_key}")
-    else:
-        print("Key not found.")
+    # Play the original audio
+    play(audio)
+
+    # Create decrypted audio segment from decrypted audio data
+    decrypted_audio = AudioSegment(data=decrypted_audio_data, sample_width=2, frame_rate=44100, channels=2)
+
+    # Play the decrypted audio
+    play(decrypted_audio)
