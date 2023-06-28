@@ -479,7 +479,7 @@ print(f"Decrypted plaintext: {decrypted_plaintext}")
 
 # Usage
 # ciphertext = b"\x12\x34\x56\x78..."  # Replace with your ciphertext
-brute_force_attack(ciphertext)
+#brute_force_attack(ciphertext)
 ## Audio example
 
 # Example usage

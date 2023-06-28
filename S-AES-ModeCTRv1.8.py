@@ -1,5 +1,6 @@
 import wave
-
+import speech_recognition as sr  # Initialize recognizer clas
+from langdetect import DetectorFactory,detect
 #S-Box
 sBox = [0x9, 0x4, 0xa, 0xb, 0xd, 0x1, 0x8, 0x5,
         0x6, 0x2, 0x0, 0x3, 0xc, 0xe, 0xf, 0x7]
@@ -212,6 +213,33 @@ def ctr_decrypt_audio(input_file, output_file, round_keys, nonce):
     return plaintext
 
 
+def cryptanalyst(output_file, nonce,input_file,decrypted_file):
+    """Brute force attack to decrypt ciphertext in CTR mode"""
+    # decrypted is the file for the crypt
+    r = sr.Recognizer()
+    with open(input_file, 'rb') as file:
+        plaintext = file.read()
+    for key in range(0b0100101011110100, 0b01001010111101011):  # Iterate through all possible keys
+        keyExp(key)
+        print(f"w::: {w}")
+        try:
+            decrypted_plaintext = ctr_decrypt_audio(output_file,decrypted_file,key, nonce)
+
+            with sr.AudioFile(decrypted_file) as source:
+                audio = r.record(source)
+                result = r.recognize_google(audio)
+                print("je suis la")
+                lang = detect(result)
+                print(lang)
+                print(result)
+            if result != None and lang == 'en':
+                return key
+        except:
+            print("passed")
+            pass
+    return None
+
+
 def brute_force_decrypt_audio(output_file, nonce,input_file,decrypted_file):
     """Brute force attack to decrypt ciphertext in CTR mode"""
     with open(input_file, 'rb') as file:
@@ -257,10 +285,12 @@ if __name__ == '__main__':
         print("Key not found.")
 
     # Usage example
-    input_audio = r"C:\Users\charb\Desktop\Semester 8\info431 - crypto\Project\Audio\RaveMusic.wav"
+    input_audio = r"C:\Users\charb\Desktop\Semester 8\info431 - crypto\Project\Audio\Woman speaking engkish.wav"
     encrypted_audio = r"C:\Users\charb\Desktop\Semester 8\info431 - crypto\Project\Audio\encrypted_audio.wav"
     decrypted_audio = r"C:\Users\charb\Desktop\Semester 8\info431 - crypto\Project\Audio\decrypted_audio.wav"
     decrypted_audio_brute_force = r"C:\Users\charb\Desktop\Semester 8\info431 - crypto\Project\Audio\decrypted_audio_brute_force.wav"
+    cryptanalystFile = r"C:\Users\charb\Desktop\Semester 8\info431 - crypto\Project\Audio\cryptanalyst_audio_brute_force.wav"
+
     key = 0b0100101011110101
     keyExp(key)
     nonce = b'\x00' * 8
@@ -268,9 +298,17 @@ if __name__ == '__main__':
     ctr_encrypt_audio(input_audio, encrypted_audio, key, nonce)
     ctr_decrypt_audio(encrypted_audio, decrypted_audio, key, nonce)
 
-    recovered_key = brute_force_decrypt_audio(encrypted_audio, nonce,input_audio,decrypted_audio_brute_force)
+    '''recovered_key = brute_force_decrypt_audio(encrypted_audio, nonce,input_audio,decrypted_audio_brute_force)
 
     if recovered_key is not None:
         print(f"Recovered Key: {recovered_key}")
+    else:
+        print("Key not found.")
+    '''
+    recovered_key2 = cryptanalyst(encrypted_audio, nonce,input_audio,cryptanalystFile)
+
+    print("Starting crypt analyst")
+    if recovered_key2 is not None:
+        print(f"Recovered Key: {recovered_key2}")
     else:
         print("Key not found.")
